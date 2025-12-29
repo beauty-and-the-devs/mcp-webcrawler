@@ -1,0 +1,174 @@
+version: "2025-12-28"
+page_type: creator
+
+selectors:
+  # Creator profile container
+  profile_container:
+    source: dom
+    selectors:
+      - '[data-testid="user-profile"]'
+      - '.user-profile'
+      - '[class*="UserProfile"]'
+      - '.profile-container'
+
+  # Creator ID (may need to extract from scripts/data attributes)
+  creator_id:
+    source: dom
+    selectors:
+      - '[data-user-id]'
+    attribute: data-user-id
+    fallback: null
+
+  # Handle from URL
+  handle:
+    source: url
+    pattern: '@([^/?]+)'
+    prefix: "@"
+
+  # Display name
+  display_name:
+    source: dom
+    selectors:
+      - '[data-testid="user-name"]'
+      - '.user-name'
+      - '.profile-name'
+      - 'h1'
+      - 'h2[class*="name"]'
+
+  # Bio
+  bio:
+    source: dom
+    selectors:
+      - '[data-testid="user-bio"]'
+      - '.user-bio'
+      - '.profile-bio'
+      - '.biography'
+    fallback: null
+
+  # Avatar
+  avatar_url:
+    source: dom
+    selectors:
+      - '[data-testid="user-avatar"] img'
+      - '.user-avatar img'
+      - '.profile-avatar img'
+    attribute: src
+    fallback: null
+
+  # Follower count
+  follower_count:
+    source: dom
+    selectors:
+      - '[data-testid="follower-count"]'
+      - '.follower-count'
+      - '[class*="follower"]'
+    pattern: '([\d,.]+[KkMm]?)'
+    transform: parse_count
+
+  # Following count
+  following_count:
+    source: dom
+    selectors:
+      - '[data-testid="following-count"]'
+      - '.following-count'
+      - '[class*="following"]'
+    pattern: '([\d,.]+[KkMm]?)'
+    transform: parse_count
+    fallback: null
+
+  # Total likes
+  total_likes:
+    source: dom
+    selectors:
+      - '[data-testid="likes-count"]'
+      - '.likes-count'
+      - '[class*="likes"]'
+    pattern: '([\d,.]+[KkMm]?)'
+    transform: parse_count
+    fallback: null
+
+  # Video count
+  video_count:
+    source: dom
+    selectors:
+      - '[data-testid="video-count"]'
+      - '.video-count'
+    pattern: '([\d,]+)'
+    transform: parse_int
+    fallback: null
+
+  # Video grid
+  video_container:
+    source: dom
+    selectors:
+      - '[data-testid="video-grid"]'
+      - '.video-grid'
+      - '.video-list'
+      - '[class*="VideoList"]'
+
+  video_item:
+    source: dom
+    selectors:
+      - '[data-testid="video-item"]'
+      - '.video-item'
+      - '.video-card'
+      - '[class*="VideoCard"]'
+
+  # Individual video data
+  video:
+    video_id:
+      source: dom
+      selectors:
+        - 'a[href*="/video/"]'
+      pattern: '/video/(\d+)'
+      attribute: href
+
+    thumbnail:
+      source: dom
+      selectors:
+        - 'img'
+        - '.thumbnail img'
+      attribute: src
+
+    views:
+      source: dom
+      selectors:
+        - '[data-testid="video-views"]'
+        - '.video-views'
+        - '.view-count'
+      pattern: '([\d,.]+[KkMm]?)'
+      transform: parse_count
+      fallback: null
+
+    likes:
+      source: dom
+      selectors:
+        - '[data-testid="video-likes"]'
+        - '.video-likes'
+      pattern: '([\d,.]+[KkMm]?)'
+      transform: parse_count
+      fallback: null
+
+  # Categories/hashtags (from bio or content)
+  primary_categories:
+    source: dom
+    selectors:
+      - '[data-testid="user-categories"]'
+      - '.profile-tags'
+      - '.hashtags'
+    multiple: true
+    fallback: null
+
+  # Profile URL
+  profile_url:
+    source: url
+
+transforms:
+  parse_count:
+    type: custom
+    description: "Parse count with K/M suffix (1.5M -> 1500000)"
+
+  parse_int:
+    type: regex
+    pattern: '([\d,]+)'
+    output: integer

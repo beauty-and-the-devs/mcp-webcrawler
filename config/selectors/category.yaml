@@ -1,0 +1,149 @@
+version: "2025-12-28"
+page_type: category_rank
+
+selectors:
+  # Product list container
+  product_list:
+    source: dom
+    selectors:
+      - '[data-testid="category-products"]'
+      - '.bestseller-list'
+      - '.product-grid'
+      - '[class*="ProductList"]'
+
+  # Individual product items
+  product_item:
+    source: dom
+    selectors:
+      - '[data-testid="product-card"]'
+      - '.product-item'
+      - '.bestseller-item'
+      - '[class*="ProductCard"]'
+
+  # Product ID from link
+  product_id:
+    source: dom
+    selectors:
+      - 'a[href*="/product/"]'
+    pattern: '/product/(\d+)'
+    attribute: href
+
+  # Product name
+  product_name:
+    source: dom
+    selectors:
+      - '[data-testid="product-title"]'
+      - '.product-name'
+      - '.product-title'
+      - 'h3'
+      - 'h4'
+    fallback: null
+
+  # Sales rank (position in list)
+  sales_rank:
+    source: position
+    description: "Derived from DOM order (1-indexed)"
+
+  # Unit sold
+  unit_sold:
+    source: dom
+    selectors:
+      - '[data-testid="sold-count"]'
+      - '.sold-count'
+      - '[class*="soldCount"]'
+    pattern: '([\d,.]+[KkMm]?)\s*sold'
+    transform: parse_count
+    fallback: null
+
+  # Price
+  price:
+    min:
+      source: dom
+      selectors:
+        - '[data-testid="price-current"]'
+        - '.sale-price'
+        - '.current-price'
+        - '.price'
+      pattern: '[\$]?([\d,]+\.?\d*)'
+      transform: parse_price
+    max:
+      source: dom
+      selectors:
+        - '[data-testid="price-original"]'
+        - '.original-price'
+        - '.list-price'
+      pattern: '[\$]?([\d,]+\.?\d*)'
+      transform: parse_price
+      fallback: null
+
+  # Rating
+  rating:
+    source: dom
+    selectors:
+      - '[data-testid="rating"]'
+      - '.rating-score'
+      - '[class*="rating"]'
+    pattern: '([\d.]+)'
+    transform: parse_float
+    fallback: 0
+
+  # Review count
+  review_count:
+    source: dom
+    selectors:
+      - '[data-testid="review-count"]'
+      - '.review-count'
+      - '[class*="reviewCount"]'
+    pattern: '([\d,]+)'
+    transform: parse_int
+    fallback: 0
+
+  # Shop info
+  shop_name:
+    source: dom
+    selectors:
+      - '[data-testid="shop-name"]'
+      - '.shop-name'
+      - '.seller-name'
+    fallback: null
+
+  shop_id:
+    source: dom
+    selectors:
+      - 'a[href*="/shop/"]'
+    pattern: '/shop/(\d+)'
+    attribute: href
+    fallback: null
+
+  # Category path from breadcrumbs
+  category_path:
+    source: dom
+    selectors:
+      - '[data-testid="breadcrumb"]'
+      - '.breadcrumb'
+      - 'nav[aria-label="breadcrumb"]'
+    transform: parse_breadcrumb
+
+transforms:
+  parse_price:
+    type: regex
+    pattern: '[\$]?([\d,]+\.?\d*)'
+    output: float
+
+  parse_count:
+    type: custom
+    description: "Parse count with K/M suffix (2.3K -> 2300)"
+
+  parse_float:
+    type: regex
+    pattern: '([\d.]+)'
+    output: float
+
+  parse_int:
+    type: regex
+    pattern: '([\d,]+)'
+    output: integer
+
+  parse_breadcrumb:
+    type: custom
+    description: "Split breadcrumb into array"

@@ -1,0 +1,240 @@
+version: "2025-12-28"
+page_type: video
+
+selectors:
+  # Video container
+  video_container:
+    source: dom
+    selectors:
+      - '[data-testid="video-detail"]'
+      - '.video-detail'
+      - '.video-container'
+      - '[class*="VideoDetail"]'
+
+  # Video ID from URL
+  video_id:
+    source: url
+    pattern: '/video/(\d+)'
+
+  # Video URL
+  video_url:
+    source: url
+
+  # Creator ID
+  creator_id:
+    source: dom
+    selectors:
+      - '[data-user-id]'
+      - 'a[href*="/@"]'
+    pattern: '/@([^/?]+)'
+    attribute: href
+    fallback: null
+
+  # Title/caption
+  title:
+    source: dom
+    selectors:
+      - '[data-testid="video-title"]'
+      - '.video-title'
+      - '.video-caption'
+      - 'h1'
+    fallback: null
+
+  # Description
+  description:
+    source: dom
+    selectors:
+      - '[data-testid="video-description"]'
+      - '.video-description'
+      - '.caption'
+      - '.desc'
+    fallback: null
+
+  # Published date
+  published_at:
+    source: dom
+    selectors:
+      - '[data-testid="video-date"]'
+      - '.video-date'
+      - 'time'
+    attribute: datetime
+    fallback: null
+
+  published_at_text:
+    source: dom
+    selectors:
+      - '[data-testid="video-date"]'
+      - '.video-date'
+      - '.upload-time'
+    transform: parse_relative_date
+    fallback: null
+
+  # Duration
+  duration_seconds:
+    source: dom
+    selectors:
+      - '[data-testid="video-duration"]'
+      - '.video-duration'
+      - '.duration'
+    transform: parse_duration
+    fallback: null
+
+  # Metrics
+  metrics:
+    views:
+      source: dom
+      selectors:
+        - '[data-testid="view-count"]'
+        - '.view-count'
+        - '.views'
+        - '[class*="views"]'
+      pattern: '([\d,.]+[KkMm]?)'
+      transform: parse_count
+
+    likes:
+      source: dom
+      selectors:
+        - '[data-testid="like-count"]'
+        - '.like-count'
+        - '.likes'
+        - '[class*="likes"]'
+      pattern: '([\d,.]+[KkMm]?)'
+      transform: parse_count
+
+    comments:
+      source: dom
+      selectors:
+        - '[data-testid="comment-count"]'
+        - '.comment-count'
+        - '.comments'
+      pattern: '([\d,.]+[KkMm]?)'
+      transform: parse_count
+
+    shares:
+      source: dom
+      selectors:
+        - '[data-testid="share-count"]'
+        - '.share-count'
+        - '.shares'
+      pattern: '([\d,.]+[KkMm]?)'
+      transform: parse_count
+      fallback: null
+
+    saves:
+      source: dom
+      selectors:
+        - '[data-testid="save-count"]'
+        - '.save-count'
+        - '.saves'
+        - '.bookmark-count'
+      pattern: '([\d,.]+[KkMm]?)'
+      transform: parse_count
+      fallback: null
+
+  # Hashtags (from description)
+  hashtags:
+    source: dom
+    selectors:
+      - '[data-testid="hashtag"]'
+      - '.hashtag'
+      - 'a[href*="/tag/"]'
+    multiple: true
+    pattern: '#(\w+)'
+
+  # Tagged products
+  tagged_products_container:
+    source: dom
+    selectors:
+      - '[data-testid="tagged-products"]'
+      - '.tagged-products'
+      - '.product-tags'
+      - '[class*="ProductTag"]'
+
+  tagged_product:
+    source: dom
+    selectors:
+      - '[data-testid="product-tag"]'
+      - '.product-tag'
+      - '.product-link'
+
+  tagged_product_data:
+    product_id:
+      source: dom
+      selectors:
+        - 'a[href*="/product/"]'
+      pattern: '/product/(\d+)'
+      attribute: href
+
+    product_name:
+      source: dom
+      selectors:
+        - '[data-testid="product-name"]'
+        - '.product-name'
+        - '.product-title'
+
+    product_url:
+      source: dom
+      selectors:
+        - 'a[href*="/product/"]'
+      attribute: href
+
+  # Content type indicators
+  content_type:
+    is_live:
+      source: dom
+      selectors:
+        - '[data-testid="live-badge"]'
+        - '.live-badge'
+        - '.live-indicator'
+      transform: boolean_exists
+
+    is_product_card:
+      source: dom
+      selectors:
+        - '[data-testid="product-card-badge"]'
+        - '.product-card-badge'
+      transform: boolean_exists
+
+  # Thumbnail
+  thumbnail_url:
+    source: dom
+    selectors:
+      - '[data-testid="video-thumbnail"] img'
+      - '.video-thumbnail img'
+      - 'meta[property="og:image"]'
+    attribute: content
+    fallback: null
+
+  # Sound/music info (if available)
+  sound:
+    name:
+      source: dom
+      selectors:
+        - '[data-testid="sound-name"]'
+        - '.sound-name'
+        - '.music-name'
+      fallback: null
+
+    author:
+      source: dom
+      selectors:
+        - '[data-testid="sound-author"]'
+        - '.sound-author'
+      fallback: null
+
+transforms:
+  parse_count:
+    type: custom
+    description: "Parse count with K/M suffix"
+
+  parse_duration:
+    type: custom
+    description: "Parse duration (1:30 -> 90 seconds)"
+
+  parse_relative_date:
+    type: custom
+    description: "Convert relative date to ISO 8601"
+
+  boolean_exists:
+    type: custom
+    description: "Returns true if element exists"

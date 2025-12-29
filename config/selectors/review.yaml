@@ -1,0 +1,233 @@
+version: "2025-12-28"
+page_type: reviews
+
+selectors:
+  # Reviews container
+  reviews_container:
+    source: dom
+    selectors:
+      - '[data-testid="reviews-container"]'
+      - '.reviews-list'
+      - '.review-section'
+      - '[class*="ReviewList"]'
+
+  # Individual review items
+  review_item:
+    source: dom
+    selectors:
+      - '[data-testid="review-item"]'
+      - '.review-item'
+      - '.review-card'
+      - '[class*="ReviewCard"]'
+
+  # Review ID (if available)
+  review_id:
+    source: dom
+    selectors:
+      - '[data-review-id]'
+    attribute: data-review-id
+    fallback: null
+
+  # Rating (stars)
+  rating:
+    source: dom
+    selectors:
+      - '[data-testid="review-rating"]'
+      - '.review-rating'
+      - '.star-rating'
+    pattern: '(\d)'
+    transform: parse_int
+
+  # Review text
+  text:
+    source: dom
+    selectors:
+      - '[data-testid="review-text"]'
+      - '.review-text'
+      - '.review-content'
+      - '.review-body'
+    fallback: ""
+
+  # Review date
+  created_at:
+    source: dom
+    selectors:
+      - '[data-testid="review-date"]'
+      - '.review-date'
+      - '.review-time'
+      - 'time'
+    attribute: datetime
+    fallback: null
+
+  created_at_text:
+    source: dom
+    selectors:
+      - '[data-testid="review-date"]'
+      - '.review-date'
+      - '.review-time'
+    transform: parse_relative_date
+    fallback: null
+
+  # Media (images/videos)
+  media_images:
+    source: dom
+    selectors:
+      - '[data-testid="review-image"] img'
+      - '.review-image img'
+      - '.review-media img'
+    attribute: src
+    multiple: true
+
+  media_videos:
+    source: dom
+    selectors:
+      - '[data-testid="review-video"] video'
+      - '.review-video video'
+    attribute: src
+    multiple: true
+
+  # Author information
+  author:
+    display_name:
+      source: dom
+      selectors:
+        - '[data-testid="reviewer-name"]'
+        - '.reviewer-name'
+        - '.author-name'
+      fallback: "Anonymous"
+
+    user_id:
+      source: dom
+      selectors:
+        - '[data-user-id]'
+      attribute: data-user-id
+      fallback: null
+
+    avatar:
+      source: dom
+      selectors:
+        - '[data-testid="reviewer-avatar"] img'
+        - '.reviewer-avatar img'
+      attribute: src
+      fallback: null
+
+    is_verified_buyer:
+      source: dom
+      selectors:
+        - '[data-testid="verified-buyer"]'
+        - '.verified-buyer'
+        - '.verified-purchase'
+      transform: boolean_exists
+      fallback: false
+
+  # Option purchased
+  option_purchased:
+    source: dom
+    selectors:
+      - '[data-testid="purchased-option"]'
+      - '.purchased-option'
+      - '.variant-purchased'
+    fallback: null
+
+  # Helpful count
+  helpful_count:
+    source: dom
+    selectors:
+      - '[data-testid="helpful-count"]'
+      - '.helpful-count'
+      - '.likes-count'
+    pattern: '([\d,]+)'
+    transform: parse_int
+    fallback: 0
+
+  # Pagination/Load more
+  next_page:
+    source: dom
+    selectors:
+      - '[data-testid="load-more"]'
+      - '.load-more'
+      - '.pagination-next'
+    fallback: null
+
+  total_reviews:
+    source: dom
+    selectors:
+      - '[data-testid="total-reviews"]'
+      - '.total-reviews'
+      - '.review-count-header'
+    pattern: '([\d,]+)'
+    transform: parse_int
+    fallback: null
+
+  # Rating distribution
+  rating_distribution:
+    five_star:
+      source: dom
+      selectors:
+        - '[data-testid="rating-5"]'
+        - '.rating-bar-5'
+      pattern: '([\d,]+)'
+      transform: parse_int
+    four_star:
+      source: dom
+      selectors:
+        - '[data-testid="rating-4"]'
+        - '.rating-bar-4'
+      pattern: '([\d,]+)'
+      transform: parse_int
+    three_star:
+      source: dom
+      selectors:
+        - '[data-testid="rating-3"]'
+        - '.rating-bar-3'
+      pattern: '([\d,]+)'
+      transform: parse_int
+    two_star:
+      source: dom
+      selectors:
+        - '[data-testid="rating-2"]'
+        - '.rating-bar-2'
+      pattern: '([\d,]+)'
+      transform: parse_int
+    one_star:
+      source: dom
+      selectors:
+        - '[data-testid="rating-1"]'
+        - '.rating-bar-1'
+      pattern: '([\d,]+)'
+      transform: parse_int
+
+  # Filter/Sort controls
+  sort_options:
+    source: dom
+    selectors:
+      - '[data-testid="sort-select"]'
+      - '.sort-dropdown'
+      - 'select[name="sort"]'
+
+  filter_rating:
+    source: dom
+    selectors:
+      - '[data-testid="filter-rating"]'
+      - '.rating-filter'
+
+  filter_media:
+    source: dom
+    selectors:
+      - '[data-testid="filter-media"]'
+      - '.media-filter'
+      - '.with-photos'
+
+transforms:
+  parse_int:
+    type: regex
+    pattern: '([\d,]+)'
+    output: integer
+
+  parse_relative_date:
+    type: custom
+    description: "Convert relative date (3 days ago) to ISO 8601"
+
+  boolean_exists:
+    type: custom
+    description: "Returns true if element exists"

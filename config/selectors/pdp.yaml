@@ -1,0 +1,249 @@
+version: "2025-12-28"
+page_type: product_pdp
+
+selectors:
+  # Product ID from URL
+  product_id:
+    source: url
+    pattern: '/product/(\d+)'
+
+  # Product name
+  product_name:
+    source: dom
+    selectors:
+      - '[data-testid="pdp-title"]'
+      - '.pdp-title'
+      - '.product-title'
+      - 'h1[class*="title"]'
+      - 'h1'
+
+  # Description
+  description:
+    source: dom
+    selectors:
+      - '[data-testid="product-description"]'
+      - '.product-description'
+      - '.description'
+      - '[class*="Description"]'
+    fallback: null
+
+  # Price information
+  price:
+    sale_price:
+      source: dom
+      selectors:
+        - '[data-testid="price-current"]'
+        - '.sale-price'
+        - '.current-price'
+        - '.price-now'
+      pattern: '[\$]?([\d,]+\.?\d*)'
+      transform: parse_price
+
+    list_price:
+      source: dom
+      selectors:
+        - '[data-testid="price-original"]'
+        - '.original-price'
+        - '.list-price'
+        - '.price-was'
+      pattern: '[\$]?([\d,]+\.?\d*)'
+      transform: parse_price
+      fallback: null
+
+    discount_rate:
+      source: dom
+      selectors:
+        - '[data-testid="discount"]'
+        - '.discount-badge'
+        - '.discount-percentage'
+      pattern: '(\d+)%'
+      transform: parse_int
+      fallback: null
+
+  # Rating and reviews
+  rating:
+    source: dom
+    selectors:
+      - '[data-testid="rating-score"]'
+      - '.rating-score'
+      - '.rating-value'
+    pattern: '([\d.]+)'
+    transform: parse_float
+    fallback: 0
+
+  review_count:
+    source: dom
+    selectors:
+      - '[data-testid="review-count"]'
+      - '.review-count'
+      - 'a[href*="reviews"]'
+    pattern: '([\d,]+)'
+    transform: parse_int
+    fallback: 0
+
+  sold_count:
+    source: dom
+    selectors:
+      - '[data-testid="sold-count"]'
+      - '.sold-count'
+    pattern: '([\d,.]+[KkMm]?)\s*sold'
+    transform: parse_count
+    fallback: null
+
+  # Product options
+  options_container:
+    source: dom
+    selectors:
+      - '[data-testid="product-options"]'
+      - '.product-options'
+      - '.variant-selector'
+
+  option_item:
+    source: dom
+    selectors:
+      - '[data-testid="option-item"]'
+      - '.option-item'
+      - '.variant-option'
+
+  option_name:
+    source: dom
+    selectors:
+      - '[data-testid="option-name"]'
+      - '.option-name'
+      - '.variant-label'
+
+  option_values:
+    source: dom
+    selectors:
+      - '[data-testid="option-value"]'
+      - '.option-value'
+      - '.variant-value'
+
+  # Images
+  main_image:
+    source: dom
+    selectors:
+      - '[data-testid="main-image"] img'
+      - '.main-image img'
+      - '.product-gallery img:first-child'
+    attribute: src
+
+  gallery_images:
+    source: dom
+    selectors:
+      - '[data-testid="gallery-image"] img'
+      - '.gallery-thumbnail img'
+      - '.product-gallery img'
+    attribute: src
+    multiple: true
+
+  # Video
+  video_url:
+    source: dom
+    selectors:
+      - '[data-testid="product-video"] video'
+      - '.product-video video'
+      - 'video[src]'
+    attribute: src
+    fallback: null
+
+  # Shop information
+  shop:
+    shop_id:
+      source: dom
+      selectors:
+        - 'a[href*="/shop/"]'
+      pattern: '/shop/(\d+)'
+      attribute: href
+      fallback: null
+
+    shop_name:
+      source: dom
+      selectors:
+        - '[data-testid="shop-name"]'
+        - '.shop-name'
+        - '.seller-name'
+
+    shop_url:
+      source: dom
+      selectors:
+        - 'a[href*="/shop/"]'
+        - '.shop-link'
+      attribute: href
+      fallback: null
+
+    shop_rating:
+      source: dom
+      selectors:
+        - '[data-testid="shop-rating"]'
+        - '.shop-rating'
+      pattern: '([\d.]+)'
+      transform: parse_float
+      fallback: null
+
+    follower_count:
+      source: dom
+      selectors:
+        - '[data-testid="shop-followers"]'
+        - '.shop-followers'
+      pattern: '([\d,.]+[KkMm]?)'
+      transform: parse_count
+      fallback: null
+
+  # Shipping
+  shipping:
+    free_shipping:
+      source: dom
+      selectors:
+        - '[data-testid="free-shipping"]'
+        - '.free-shipping'
+        - '.free-delivery'
+      transform: boolean_exists
+      fallback: false
+
+    estimated_days:
+      source: dom
+      selectors:
+        - '[data-testid="delivery-estimate"]'
+        - '.delivery-estimate'
+        - '.shipping-days'
+      pattern: '(\d+)'
+      transform: parse_int
+      fallback: null
+
+  # Category breadcrumb
+  category_path:
+    source: dom
+    selectors:
+      - '[data-testid="breadcrumb"]'
+      - '.breadcrumb'
+      - 'nav[aria-label="breadcrumb"]'
+    transform: parse_breadcrumb
+
+transforms:
+  parse_price:
+    type: regex
+    pattern: '[\$]?([\d,]+\.?\d*)'
+    output: float
+
+  parse_count:
+    type: custom
+    description: "Parse count with K/M suffix"
+
+  parse_float:
+    type: regex
+    pattern: '([\d.]+)'
+    output: float
+
+  parse_int:
+    type: regex
+    pattern: '([\d,]+)'
+    output: integer
+
+  boolean_exists:
+    type: custom
+    description: "Returns true if element exists"
+
+  parse_breadcrumb:
+    type: custom
+    description: "Split breadcrumb into array"

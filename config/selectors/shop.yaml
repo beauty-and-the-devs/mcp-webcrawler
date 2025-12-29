@@ -1,0 +1,160 @@
+version: "2025-12-28"
+page_type: shop
+
+selectors:
+  # Shop header/profile
+  shop_container:
+    source: dom
+    selectors:
+      - '[data-testid="shop-profile"]'
+      - '.shop-header'
+      - '.shop-profile'
+      - '[class*="ShopProfile"]'
+
+  # Shop ID from URL
+  shop_id:
+    source: url
+    pattern: '/shop/(\d+)'
+
+  # Shop name
+  shop_name:
+    source: dom
+    selectors:
+      - '[data-testid="shop-name"]'
+      - '.shop-name'
+      - '.store-name'
+      - 'h1'
+
+  # Shop description/bio
+  description:
+    source: dom
+    selectors:
+      - '[data-testid="shop-description"]'
+      - '.shop-description'
+      - '.shop-bio'
+    fallback: null
+
+  # Shop avatar/logo
+  avatar_url:
+    source: dom
+    selectors:
+      - '[data-testid="shop-avatar"] img'
+      - '.shop-avatar img'
+      - '.shop-logo img'
+    attribute: src
+    fallback: null
+
+  # Rating
+  rating:
+    source: dom
+    selectors:
+      - '[data-testid="shop-rating"]'
+      - '.shop-rating'
+      - '.store-rating'
+    pattern: '([\d.]+)'
+    transform: parse_float
+    fallback: null
+
+  # Follower count
+  follower_count:
+    source: dom
+    selectors:
+      - '[data-testid="follower-count"]'
+      - '.follower-count'
+      - '.followers'
+    pattern: '([\d,.]+[KkMm]?)'
+    transform: parse_count
+    fallback: null
+
+  # Product count
+  product_count:
+    source: dom
+    selectors:
+      - '[data-testid="product-count"]'
+      - '.product-count'
+      - '.total-products'
+    pattern: '([\d,]+)'
+    transform: parse_int
+    fallback: null
+
+  # Response rate
+  response_rate:
+    source: dom
+    selectors:
+      - '[data-testid="response-rate"]'
+      - '.response-rate'
+    pattern: '(\d+)%'
+    transform: parse_int
+    fallback: null
+
+  # Ship on time rate
+  ship_on_time:
+    source: dom
+    selectors:
+      - '[data-testid="ship-on-time"]'
+      - '.ship-on-time'
+    pattern: '(\d+)%'
+    transform: parse_int
+    fallback: null
+
+  # Join date
+  joined_at:
+    source: dom
+    selectors:
+      - '[data-testid="join-date"]'
+      - '.join-date'
+      - '.member-since'
+    transform: parse_date
+    fallback: null
+
+  # Shop products list
+  products_container:
+    source: dom
+    selectors:
+      - '[data-testid="shop-products"]'
+      - '.shop-products'
+      - '.product-grid'
+
+  product_item:
+    source: dom
+    selectors:
+      - '[data-testid="product-card"]'
+      - '.product-item'
+      - '.product-card'
+
+  # Shop categories
+  categories:
+    source: dom
+    selectors:
+      - '[data-testid="shop-categories"]'
+      - '.shop-categories'
+      - '.category-list'
+    multiple: true
+
+  # Location
+  location:
+    source: dom
+    selectors:
+      - '[data-testid="shop-location"]'
+      - '.shop-location'
+      - '.store-location'
+    fallback: null
+
+transforms:
+  parse_float:
+    type: regex
+    pattern: '([\d.]+)'
+    output: float
+
+  parse_count:
+    type: custom
+    description: "Parse count with K/M suffix"
+
+  parse_int:
+    type: regex
+    pattern: '([\d,]+)'
+    output: integer
+
+  parse_date:
+    type: custom
+    description: "Parse date string to ISO 8601"
