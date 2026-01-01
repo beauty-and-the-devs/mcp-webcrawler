@@ -123,37 +123,49 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Deploy to VM
+      - name: Deploy to VM via gcloud
         run: |
+          # Create deploy script
+          cat > /tmp/deploy.sh << 'DEPLOY_SCRIPT'
+          #!/bin/bash
+          set -e
+          echo "=== Starting deployment at $(date) ==="
+
+          # Configure Docker auth
+          gcloud auth configure-docker ${{ secrets.GCP_REGION }}-docker.pkg.dev --quiet
+
+          # Pull new image
+          docker pull ${{ secrets.GCP_ARTIFACT_REGISTRY }}/webcrawler-mcp:latest
+
+          # Stop and remove existing container
+          docker stop webcrawler-mcp 2>/dev/null || true
+          docker rm webcrawler-mcp 2>/dev/null || true
+
+          # Run new container
+          docker run -d \
+            --name webcrawler-mcp \
+            --restart unless-stopped \
+            --shm-size=2gb \
+            --env-file /opt/webcrawler-mcp/.env \
+            -p 3000:3000 \
+            ${{ secrets.GCP_ARTIFACT_REGISTRY }}/webcrawler-mcp:latest
+
+          echo "=== Deployment complete at $(date) ==="
+          docker ps
+          DEPLOY_SCRIPT
+
+          # Copy script to VM and execute
+          gcloud compute scp /tmp/deploy.sh \
+            ${{ secrets.GCP_VM_NAME }}:/tmp/deploy.sh \
+            --zone=${{ secrets.GCP_ZONE }} \
+            --tunnel-through-iap \
+            --quiet
+
           gcloud compute ssh ${{ secrets.GCP_VM_NAME }} \
             --zone=${{ secrets.GCP_ZONE }} \
             --tunnel-through-iap \
-            --command="
-              set -e
-              echo 'Deploying new image...'
-
-              # Configure Docker auth
-              sudo gcloud auth configure-docker ${{ secrets.GCP_REGION }}-docker.pkg.dev --quiet
-
-              # Pull new image
-              sudo docker pull ${{ secrets.GCP_ARTIFACT_REGISTRY }}/webcrawler-mcp:latest
-
-              # Stop and remove existing container
-              sudo docker stop webcrawler-mcp 2>/dev/null || true
-              sudo docker rm webcrawler-mcp 2>/dev/null || true
-
-              # Run new container
-              sudo docker run -d \
-                --name webcrawler-mcp \
-                --restart unless-stopped \
-                --shm-size=2gb \
-                --env-file /opt/webcrawler-mcp/.env \
-                -p 3000:3000 \
-                ${{ secrets.GCP_ARTIFACT_REGISTRY }}/webcrawler-mcp:latest
-
-              echo 'Deployment complete!'
-              sudo docker ps
-            "
+            --quiet \
+            --command="sudo bash /tmp/deploy.sh"
 
       - name: Health Check
         run: |
@@ -166,4 +178,4 @@ jobs:
             --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
 
           echo "Checking health at http://$EXTERNAL_IP:3000/health"
-          curl -f "http://$EXTERNAL_IP:3000/health" || echo "Health check skipped (may not be exposed)"
+          curl -sf "http://$EXTERNAL_IP:3000/health" --max-time 10 || echo "Health check skipped (may not be exposed)"
