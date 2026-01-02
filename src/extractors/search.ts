@@ -140,10 +140,10 @@ export class SearchExtractor extends BaseExtractor<SearchExtractorInput, SearchE
         }
 
         // Try to find any script with product data
-        const scripts = document.querySelectorAll('script[type="application/json"]');
-        for (const script of scripts) {
+        const scripts = Array.from(document.querySelectorAll('script[type="application/json"]'));
+        for (let i = 0; i < scripts.length; i++) {
           try {
-            const data = JSON.parse(script.textContent || '');
+            const data = JSON.parse(scripts[i]?.textContent || '');
             if (data.products || data.items || data.searchResult) {
               return data;
             }
