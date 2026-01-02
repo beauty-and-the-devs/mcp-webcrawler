@@ -39,9 +39,11 @@ export async function crawlSearch(args: unknown): Promise<CrawlSearchOutput> {
 
       await withRetry(
         async () => {
-          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+          await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
+          // Wait for TikTok Shop content to render
+          await page.waitForTimeout(3000);
         },
-        { maxRetries: 3, baseDelay: 1000 },
+        { maxRetries: 3, baseDelay: 2000 },
       );
 
       const pageType = classifyPageType(page.url());

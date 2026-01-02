@@ -14,9 +14,9 @@ export interface ExtractorOptions {
 }
 
 const DEFAULT_OPTIONS: Required<ExtractorOptions> = {
-  timeout: 10000,
+  timeout: 30000,
   maxScrolls: 10,
-  scrollDelay: 1000,
+  scrollDelay: 1500,
 };
 
 export abstract class BaseExtractor<TInput, TOutput> {
