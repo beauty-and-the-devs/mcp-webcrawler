@@ -1,4 +1,4 @@
-version: "2025-12-28"
+version: "2026-01-02"
 page_type: product_pdp
 
 selectors:
@@ -7,45 +7,54 @@ selectors:
     source: url
     pattern: '/product/(\d+)'
 
-  # Product name
+  # Product name - TikTok uses title-xxx pattern with hash suffix
   product_name:
     source: dom
     selectors:
-      - '[data-testid="pdp-title"]'
-      - '.pdp-title'
-      - '.product-title'
-      - 'h1[class*="title"]'
+      - 'h1[class*="title-"]'
+      - '[class*="pdpTitle"]'
+      - '[class*="productTitle"]'
+      - '[class*="ProductTitle"]'
+      - '[class*="goodsTitle"]'
+      - '[class*="GoodsTitle"]'
+      - '[data-e2e="product-title"]'
       - 'h1'
 
   # Description
   description:
     source: dom
     selectors:
-      - '[data-testid="product-description"]'
-      - '.product-description'
-      - '.description'
-      - '[class*="Description"]'
+      - '[class*="description-"]'
+      - '[class*="productDesc"]'
+      - '[class*="ProductDesc"]'
+      - '[class*="goodsDesc"]'
+      - '[class*="descContent"]'
+      - '[data-e2e="product-description"]'
     fallback: null
 
-  # Price information
+  # Price information - TikTok uses price-xxx pattern
   price:
     sale_price:
       source: dom
       selectors:
-        - '[data-testid="price-current"]'
-        - '.sale-price'
-        - '.current-price'
-        - '.price-now'
+        - '[class*="price-"] span:first-child'
+        - '[class*="salePrice"]'
+        - '[class*="currentPrice"]'
+        - '[class*="priceNow"]'
+        - '[class*="Price"] span'
+        - '[data-e2e="price-current"]'
       pattern: '[\$]?([\d,]+\.?\d*)'
       transform: parse_price
 
     list_price:
       source: dom
       selectors:
-        - '[data-testid="price-original"]'
-        - '.original-price'
-        - '.list-price'
-        - '.price-was'
+        - '[class*="originalPrice"]'
+        - '[class*="listPrice"]'
+        - '[class*="priceOriginal"]'
+        - 'del'
+        - 's'
+        - '[data-e2e="price-original"]'
       pattern: '[\$]?([\d,]+\.?\d*)'
       transform: parse_price
       fallback: null
@@ -53,20 +62,24 @@ selectors:
     discount_rate:
       source: dom
       selectors:
-        - '[data-testid="discount"]'
-        - '.discount-badge'
-        - '.discount-percentage'
+        - '[class*="discount-"]'
+        - '[class*="discountBadge"]'
+        - '[class*="discountTag"]'
+        - '[class*="saveBadge"]'
+        - '[data-e2e="discount"]'
       pattern: '(\d+)%'
       transform: parse_int
       fallback: null
 
-  # Rating and reviews
+  # Rating and reviews - TikTok uses infoRatingScore-xxx pattern
   rating:
     source: dom
     selectors:
-      - '[data-testid="rating-score"]'
-      - '.rating-score'
-      - '.rating-value'
+      - '[class*="infoRatingScore"]'
+      - '[class*="ratingScore"]'
+      - '[class*="RatingScore"]'
+      - '[class*="starRating"]'
+      - '[data-e2e="rating-score"]'
     pattern: '([\d.]+)'
     transform: parse_float
     fallback: 0
@@ -74,18 +87,25 @@ selectors:
   review_count:
     source: dom
     selectors:
-      - '[data-testid="review-count"]'
-      - '.review-count'
+      - '[class*="infoRatingCount"]'
+      - '[class*="reviewCount"]'
+      - '[class*="RatingCount"]'
+      - '[class*="ratingCount"]'
       - 'a[href*="reviews"]'
-    pattern: '([\d,]+)'
+      - '[data-e2e="review-count"]'
+    pattern: '\(?([\d,]+)\)?'
     transform: parse_int
     fallback: 0
 
+  # Sold count - TikTok uses info__sold-xxx pattern
   sold_count:
     source: dom
     selectors:
-      - '[data-testid="sold-count"]'
-      - '.sold-count'
+      - '[class*="info__sold"]'
+      - '[class*="soldCount"]'
+      - '[class*="SoldCount"]'
+      - '[class*="salesInfo"]'
+      - '[data-e2e="sold-count"]'
     pattern: '([\d,.]+[KkMm]?)\s*sold'
     transform: parse_count
     fallback: null
@@ -94,46 +114,57 @@ selectors:
   options_container:
     source: dom
     selectors:
-      - '[data-testid="product-options"]'
-      - '.product-options'
-      - '.variant-selector'
+      - '[class*="productOptions"]'
+      - '[class*="variantSelector"]'
+      - '[class*="skuSelector"]'
+      - '[class*="optionWrapper"]'
+      - '[data-e2e="product-options"]'
 
   option_item:
     source: dom
     selectors:
-      - '[data-testid="option-item"]'
-      - '.option-item'
-      - '.variant-option'
+      - '[class*="optionItem"]'
+      - '[class*="variantItem"]'
+      - '[class*="skuItem"]'
+      - '[data-e2e="option-item"]'
 
   option_name:
     source: dom
     selectors:
-      - '[data-testid="option-name"]'
-      - '.option-name'
-      - '.variant-label'
+      - '[class*="optionName"]'
+      - '[class*="optionLabel"]'
+      - '[class*="variantLabel"]'
+      - '[class*="skuLabel"]'
+      - '[data-e2e="option-name"]'
 
   option_values:
     source: dom
     selectors:
-      - '[data-testid="option-value"]'
-      - '.option-value'
-      - '.variant-value'
+      - '[class*="optionValue"]'
+      - '[class*="variantValue"]'
+      - '[class*="skuValue"]'
+      - '[data-e2e="option-value"]'
 
-  # Images
+  # Images - TikTok uses slick-list for image carousel
   main_image:
     source: dom
     selectors:
-      - '[data-testid="main-image"] img'
-      - '.main-image img'
-      - '.product-gallery img:first-child'
+      - '.slick-current img'
+      - '[class*="mainImage"] img'
+      - '[class*="productImage"] img'
+      - '[class*="galleryMain"] img'
+      - '[data-e2e="main-image"] img'
+      - 'img[class*="pdpImage"]'
     attribute: src
 
   gallery_images:
     source: dom
     selectors:
-      - '[data-testid="gallery-image"] img'
-      - '.gallery-thumbnail img'
-      - '.product-gallery img'
+      - '.slick-list img'
+      - '[class*="thumbnailList"] img'
+      - '[class*="galleryThumbnail"] img'
+      - '[class*="productGallery"] img'
+      - '[data-e2e="gallery-image"] img'
     attribute: src
     multiple: true
 
@@ -141,42 +172,48 @@ selectors:
   video_url:
     source: dom
     selectors:
-      - '[data-testid="product-video"] video'
-      - '.product-video video'
+      - '[class*="productVideo"] video'
+      - '[class*="videoPlayer"] video'
       - 'video[src]'
+      - '[data-e2e="product-video"] video'
     attribute: src
     fallback: null
 
-  # Shop information
+  # Shop information - TikTok uses shopName-xxx pattern
   shop:
     shop_id:
       source: dom
       selectors:
+        - 'a[href*="/@"]'
         - 'a[href*="/shop/"]'
-      pattern: '/shop/(\d+)'
+      pattern: '/@([^/]+)|/shop/(\d+)'
       attribute: href
       fallback: null
 
     shop_name:
       source: dom
       selectors:
-        - '[data-testid="shop-name"]'
-        - '.shop-name'
-        - '.seller-name'
+        - '[class*="shopName"]'
+        - '[class*="sellerName"]'
+        - '[class*="ShopName"]'
+        - '[class*="storeName"]'
+        - '[data-e2e="shop-name"]'
 
     shop_url:
       source: dom
       selectors:
+        - 'a[href*="/@"]'
         - 'a[href*="/shop/"]'
-        - '.shop-link'
+        - '[class*="shopLink"]'
       attribute: href
       fallback: null
 
     shop_rating:
       source: dom
       selectors:
-        - '[data-testid="shop-rating"]'
-        - '.shop-rating'
+        - '[class*="shopRating"]'
+        - '[class*="sellerRating"]'
+        - '[data-e2e="shop-rating"]'
       pattern: '([\d.]+)'
       transform: parse_float
       fallback: null
@@ -184,8 +221,9 @@ selectors:
     follower_count:
       source: dom
       selectors:
-        - '[data-testid="shop-followers"]'
-        - '.shop-followers'
+        - '[class*="shopFollowers"]'
+        - '[class*="followerCount"]'
+        - '[data-e2e="shop-followers"]'
       pattern: '([\d,.]+[KkMm]?)'
       transform: parse_count
       fallback: null
@@ -195,18 +233,20 @@ selectors:
     free_shipping:
       source: dom
       selectors:
-        - '[data-testid="free-shipping"]'
-        - '.free-shipping'
-        - '.free-delivery'
+        - '[class*="freeShipping"]'
+        - '[class*="free-shipping"]'
+        - '[class*="shippingFree"]'
+        - '[data-e2e="free-shipping"]'
       transform: boolean_exists
       fallback: false
 
     estimated_days:
       source: dom
       selectors:
-        - '[data-testid="delivery-estimate"]'
-        - '.delivery-estimate'
-        - '.shipping-days'
+        - '[class*="deliveryEstimate"]'
+        - '[class*="shippingDays"]'
+        - '[class*="arrivalDate"]'
+        - '[data-e2e="delivery-estimate"]'
       pattern: '(\d+)'
       transform: parse_int
       fallback: null
@@ -215,10 +255,20 @@ selectors:
   category_path:
     source: dom
     selectors:
-      - '[data-testid="breadcrumb"]'
-      - '.breadcrumb'
+      - '[class*="breadcrumb"]'
+      - '[class*="Breadcrumb"]'
       - 'nav[aria-label="breadcrumb"]'
+      - '[class*="categoryPath"]'
     transform: parse_breadcrumb
+
+  # Sell info container (contains rating, reviews, sold)
+  sell_info:
+    source: dom
+    selectors:
+      - '[class*="sellInfo"]'
+      - '[class*="SellInfo"]'
+      - '[class*="productInfo"]'
+      - '[class*="ratingWrapper"]'
 
 transforms:
   parse_price:

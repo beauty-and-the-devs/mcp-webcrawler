@@ -1,23 +1,29 @@
-version: "2025-12-28"
+version: "2026-01-02"
 page_type: search_result
 
 selectors:
-  # Search results container
+  # Search results container - TikTok uses dynamic class names with hash suffixes
   results_container:
     source: dom
     selectors:
-      - '[data-testid="search-results"]'
-      - '.search-results'
-      - '[class*="SearchResult"]'
+      - '[class*="SearchResultList"]'
+      - '[class*="searchResult"]'
+      - '[class*="ProductList"]'
+      - '[class*="product-list"]'
+      - 'main [class*="container"]'
+      - '#main-content-product_search'
 
-  # Individual result items
+  # Individual result items - product cards
   result_item:
     source: dom
     selectors:
-      - '[data-testid="search-result-item"]'
-      - '.search-result-item'
-      - '.product-card'
       - '[class*="ProductCard"]'
+      - '[class*="productCard"]'
+      - '[class*="product-card"]'
+      - '[class*="SearchResultCard"]'
+      - '[class*="GoodsCard"]'
+      - '[data-e2e="search-card"]'
+      - 'a[href*="/product/"]'
 
   # Product ID
   product_id:
@@ -27,84 +33,114 @@ selectors:
     pattern: '/product/(\d+)'
     attribute: href
 
-  # Product name
+  # Product name - TikTok uses title-xxx pattern
   product_name:
     source: dom
     selectors:
-      - '[data-testid="product-title"]'
-      - '.product-name'
-      - '.product-title'
+      - '[class*="title-"]'
+      - '[class*="productTitle"]'
+      - '[class*="product-title"]'
+      - '[class*="ProductTitle"]'
+      - '[class*="goodsName"]'
+      - '[class*="GoodsName"]'
+      - '[class*="name-"]'
       - 'h3'
+      - 'h2'
+      - '[data-e2e="product-title"]'
     fallback: null
 
-  # Price
+  # Price - TikTok uses price-xxx pattern
   price:
     min:
       source: dom
       selectors:
-        - '[data-testid="price"]'
-        - '.sale-price'
-        - '.current-price'
-        - '.price'
+        - '[class*="price-"] span'
+        - '[class*="Price"] span'
+        - '[class*="salePrice"]'
+        - '[class*="sale-price"]'
+        - '[class*="currentPrice"]'
+        - '[class*="current-price"]'
+        - '[class*="priceWrapper"] span'
+        - '[data-e2e="price"]'
       pattern: '[\$]?([\d,]+\.?\d*)'
       transform: parse_price
     max:
       source: dom
       selectors:
-        - '.original-price'
-        - '.list-price'
+        - '[class*="originalPrice"]'
+        - '[class*="original-price"]'
+        - '[class*="listPrice"]'
+        - '[class*="list-price"]'
+        - 'del'
+        - 's'
       pattern: '[\$]?([\d,]+\.?\d*)'
       transform: parse_price
       fallback: null
 
-  # Rating
+  # Rating - TikTok uses infoRatingScore-xxx pattern
   rating:
     source: dom
     selectors:
-      - '[data-testid="rating"]'
-      - '.rating-score'
-      - '.rating'
+      - '[class*="infoRatingScore"]'
+      - '[class*="RatingScore"]'
+      - '[class*="rating-score"]'
+      - '[class*="ratingScore"]'
+      - '[class*="star-rating"]'
+      - '[class*="Rating"] span'
+      - '[data-e2e="rating"]'
     pattern: '([\d.]+)'
     transform: parse_float
     fallback: 0
 
-  # Review count
+  # Review count - TikTok uses infoRatingCount-xxx pattern
   review_count:
     source: dom
     selectors:
-      - '[data-testid="review-count"]'
-      - '.review-count'
-    pattern: '([\d,]+)'
+      - '[class*="infoRatingCount"]'
+      - '[class*="RatingCount"]'
+      - '[class*="reviewCount"]'
+      - '[class*="review-count"]'
+      - '[class*="ratingCount"]'
+      - '[data-e2e="review-count"]'
+    pattern: '\(?([\d,]+)\)?'
     transform: parse_int
     fallback: 0
 
-  # Sold count
+  # Sold count - TikTok uses info__sold-xxx or soldCount-xxx pattern
   sold_count:
     source: dom
     selectors:
-      - '[data-testid="sold-count"]'
-      - '.sold-count'
+      - '[class*="info__sold"]'
+      - '[class*="soldCount"]'
+      - '[class*="sold-count"]'
+      - '[class*="SoldCount"]'
+      - '[class*="salesVolume"]'
+      - '[data-e2e="sold-count"]'
     pattern: '([\d,.]+[KkMm]?)\s*sold'
     transform: parse_count
     fallback: null
 
-  # Shop name
+  # Shop name - TikTok uses shopName-xxx pattern
   shop_name:
     source: dom
     selectors:
-      - '[data-testid="shop-name"]'
-      - '.shop-name'
-      - '.seller-name'
+      - '[class*="shopName"]'
+      - '[class*="shop-name"]'
+      - '[class*="ShopName"]'
+      - '[class*="sellerName"]'
+      - '[class*="seller-name"]'
+      - '[data-e2e="shop-name"]'
     fallback: null
 
   # Advertisement indicator
   is_ad:
     source: dom
     selectors:
-      - '[data-testid="ad-badge"]'
-      - '.ad-badge'
-      - '.sponsored'
+      - '[class*="adBadge"]'
+      - '[class*="ad-badge"]'
       - '[class*="sponsored"]'
+      - '[class*="Sponsored"]'
+      - '[data-e2e="ad-badge"]'
     transform: boolean_exists
     fallback: false
 
@@ -112,8 +148,9 @@ selectors:
   next_page:
     source: dom
     selectors:
-      - '[data-testid="next-page"]'
-      - '.pagination-next'
+      - '[class*="pagination"] a[aria-label="next"]'
+      - '[class*="Pagination"] button:last-child'
+      - 'button[aria-label="Next page"]'
       - 'a[rel="next"]'
     attribute: href
     fallback: null
@@ -121,9 +158,10 @@ selectors:
   total_results:
     source: dom
     selectors:
-      - '[data-testid="total-results"]'
-      - '.total-results'
-      - '.result-count'
+      - '[class*="totalResults"]'
+      - '[class*="total-results"]'
+      - '[class*="resultCount"]'
+      - '[class*="result-count"]'
     pattern: '([\d,]+)'
     transform: parse_int
     fallback: null
