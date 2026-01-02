@@ -11,6 +11,7 @@ import { crawlSearch } from '../dist/tools/crawl-search.js';
 import { crawlCreator } from '../dist/tools/crawl-creator.js';
 import { crawlVideo } from '../dist/tools/crawl-video.js';
 import { getCrawlStatus } from '../dist/tools/get-crawl-status.js';
+import { browserPool } from '../dist/browser/pool.js';
 
 const PORT = process.env.PORT || 3000;
 
@@ -47,6 +48,60 @@ const server = http.createServer(async (req, res) => {
   if (req.url === '/tools' && req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ tools: Object.keys(tools) }));
+    return;
+  }
+
+  // Debug endpoint: GET /debug?url=...
+  if (req.url?.startsWith('/debug') && req.method === 'GET') {
+    const urlParams = new URL(req.url, `http://localhost:${PORT}`);
+    const targetUrl = urlParams.searchParams.get('url') || 'https://www.tiktok.com/shop/search?q=lip%20gloss';
+
+    try {
+      const browserContext = await browserPool.acquire();
+      const page = await browserContext.newPage();
+
+      await page.goto(targetUrl, { waitUntil: 'networkidle', timeout: 60000 });
+      await page.waitForTimeout(5000);
+
+      // Get page info
+      const debugInfo = await page.evaluate(() => {
+        const scripts = Array.from(document.querySelectorAll('script[id]'));
+        const scriptInfo = scripts.map(s => ({ id: s.id, length: s.textContent?.length || 0 }));
+
+        // Check for specific TikTok data
+        const universalData = document.querySelector('#__UNIVERSAL_DATA_FOR_REHYDRATION__');
+        const sigiState = document.querySelector('#SIGI_STATE');
+        const nextData = document.querySelector('#__NEXT_DATA__');
+
+        return {
+          url: window.location.href,
+          title: document.title,
+          bodyLength: document.body.innerHTML.length,
+          scriptTags: scriptInfo,
+          hasUniversalData: !!universalData,
+          hasSigiState: !!sigiState,
+          hasNextData: !!nextData,
+          // Sample of body content (first 2000 chars)
+          bodySample: document.body.innerText.substring(0, 2000),
+        };
+      });
+
+      // Take screenshot
+      const screenshot = await page.screenshot({ type: 'png', fullPage: false });
+
+      await page.close();
+      browserPool.release(browserContext);
+
+      // Return debug info (screenshot as base64)
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        ...debugInfo,
+        screenshot: screenshot.toString('base64'),
+      }));
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message }));
+    }
     return;
   }
 
