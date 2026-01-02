@@ -38,7 +38,17 @@ export class SearchExtractor extends BaseExtractor<SearchExtractorInput, SearchE
 
   async extract(input: SearchExtractorInput): Promise<SearchExtractorOutput> {
     const { limit } = input;
-    const products: SearchProduct[] = [];
+    let products: SearchProduct[] = [];
+
+    // Method 1: Try to extract from embedded JSON data (most reliable for TikTok)
+    const jsonProducts = await this.extractFromJson(limit);
+    if (jsonProducts.length > 0) {
+      this.log.info({ found: jsonProducts.length }, 'Extracted products from JSON data');
+      return { products: jsonProducts, totalCount: jsonProducts.length };
+    }
+
+    // Method 2: Fall back to DOM extraction
+    this.log.info('JSON extraction failed, trying DOM selectors');
 
     // Wait for search results
     const containerSelector = await this.waitForAny(this.getSelectors('results_container'));
@@ -97,6 +107,147 @@ export class SearchExtractor extends BaseExtractor<SearchExtractorInput, SearchE
     }
 
     return { products, totalCount: totalCount || products.length };
+  }
+
+  private async extractFromJson(limit: number): Promise<SearchProduct[]> {
+    const products: SearchProduct[] = [];
+
+    try {
+      // Extract JSON from script tags - TikTok embeds data in various script tags
+      const jsonData = await this.page.evaluate(() => {
+        // Try __UNIVERSAL_DATA_FOR_REHYDRATION__
+        const universalScript = document.querySelector('script#__UNIVERSAL_DATA_FOR_REHYDRATION__');
+        if (universalScript?.textContent) {
+          try {
+            return JSON.parse(universalScript.textContent);
+          } catch {}
+        }
+
+        // Try SIGI_STATE
+        const sigiScript = document.querySelector('script#SIGI_STATE');
+        if (sigiScript?.textContent) {
+          try {
+            return JSON.parse(sigiScript.textContent);
+          } catch {}
+        }
+
+        // Try __NEXT_DATA__
+        const nextScript = document.querySelector('script#__NEXT_DATA__');
+        if (nextScript?.textContent) {
+          try {
+            return JSON.parse(nextScript.textContent);
+          } catch {}
+        }
+
+        // Try to find any script with product data
+        const scripts = document.querySelectorAll('script[type="application/json"]');
+        for (const script of scripts) {
+          try {
+            const data = JSON.parse(script.textContent || '');
+            if (data.products || data.items || data.searchResult) {
+              return data;
+            }
+          } catch {}
+        }
+
+        return null;
+      });
+
+      if (!jsonData) {
+        this.log.debug('No JSON data found in page');
+        return [];
+      }
+
+      // Parse TikTok's data structure - try multiple paths
+      const productList = this.findProducts(jsonData);
+
+      for (let i = 0; i < Math.min(productList.length, limit); i++) {
+        const item = productList[i];
+        const product = this.parseJsonProduct(item);
+        if (product) {
+          products.push(product);
+          this.context.recordTimestamp();
+        }
+      }
+    } catch (error) {
+      this.log.warn({ error }, 'Failed to extract from JSON');
+    }
+
+    return products;
+  }
+
+  private findProducts(data: any): any[] {
+    if (!data) return [];
+
+    // Direct arrays
+    if (Array.isArray(data.products)) return data.products;
+    if (Array.isArray(data.items)) return data.items;
+    if (Array.isArray(data.searchResult)) return data.searchResult;
+    if (Array.isArray(data.data?.products)) return data.data.products;
+    if (Array.isArray(data.data?.items)) return data.data.items;
+
+    // TikTok specific paths
+    if (data.__DEFAULT_SCOPE__) {
+      const scope = data.__DEFAULT_SCOPE__;
+      if (scope['webapp.search']?.products) return scope['webapp.search'].products;
+      if (scope['shop.search']?.products) return scope['shop.search'].products;
+    }
+
+    // Recursive search for product arrays
+    const searchPaths = ['ItemModule', 'SearchModule', 'ShopModule', 'ProductModule'];
+    for (const path of searchPaths) {
+      if (data[path]) {
+        const items = Object.values(data[path]);
+        if (items.length > 0 && typeof items[0] === 'object') {
+          return items as any[];
+        }
+      }
+    }
+
+    // Search props.pageProps
+    if (data.props?.pageProps?.products) return data.props.pageProps.products;
+    if (data.props?.pageProps?.items) return data.props.pageProps.items;
+
+    return [];
+  }
+
+  private parseJsonProduct(item: any): SearchProduct | null {
+    if (!item) return null;
+
+    // Try to extract product ID
+    const productId = item.productId || item.product_id || item.id || item.itemId;
+    if (!productId) return null;
+
+    // Extract price
+    const priceData = item.price || item.priceInfo || {};
+    const priceMin = this.parseFloat(String(
+      priceData.salePrice || priceData.price || priceData.min || priceData.current || item.salePrice || 0
+    )) ?? 0;
+    const priceMax = this.parseFloat(String(
+      priceData.originalPrice || priceData.max || priceData.listPrice || priceMin
+    )) ?? priceMin;
+
+    // Track fields
+    this.context.trackField('product_id', productId);
+    this.context.trackField('product_name', item.title || item.name || item.productName);
+    this.context.trackField('price', priceMin);
+    this.context.trackField('rating', item.rating || item.score);
+
+    return {
+      product_id: String(productId),
+      product_name: item.title || item.name || item.productName || '',
+      price: {
+        min: priceMin,
+        max: priceMax,
+        currency: 'USD',
+      },
+      rating: this.parseFloat(String(item.rating || item.score || 0)) ?? 0,
+      review_count: this.parseInt(String(item.reviewCount || item.reviews || 0)) ?? 0,
+      sold_count: this.parseCount(String(item.soldCount || item.sales || item.sold || '')),
+      shop_name: item.shopName || item.sellerName || item.shop?.name || null,
+      is_ad: item.isAd || item.sponsored || false,
+      pdp_url: `https://www.tiktok.com/shop/product/${productId}`,
+    };
   }
 
   private async extractSearchProduct(
