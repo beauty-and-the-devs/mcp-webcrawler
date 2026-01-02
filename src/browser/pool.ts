@@ -10,9 +10,22 @@ const MAX_CONCURRENT = parseInt(process.env['MAX_CONCURRENT_PAGES'] ?? '3', 10);
 const HEADLESS = process.env['BROWSER_HEADLESS'] !== 'false';
 
 // Proxy configuration from environment
-const PROXY_SERVER = process.env['PROXY_SERVER'] || ''; // e.g., 'http://proxy.example.com:port'
-const PROXY_USERNAME = process.env['PROXY_USERNAME'] || '';
+const PROXY_SERVER = process.env['PROXY_SERVER'] || ''; // e.g., 'http://brd.superproxy.io:22225'
+const PROXY_USERNAME = process.env['PROXY_USERNAME'] || ''; // e.g., 'brd-customer-XXXXX-zone-residential'
 const PROXY_PASSWORD = process.env['PROXY_PASSWORD'] || '';
+
+// Generate random session ID for Bright Data IP rotation
+function generateSessionId(): string {
+  return `session-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+}
+
+// Build proxy username with session ID for IP rotation
+function getProxyUsername(): string {
+  if (!PROXY_USERNAME) return '';
+  // Append session ID to username for Bright Data IP rotation
+  // Format: brd-customer-XXXXX-zone-ZONE-session-RANDOM
+  return `${PROXY_USERNAME}-${generateSessionId()}`;
+}
 
 interface PooledContext {
   context: BrowserContext;
@@ -25,8 +38,8 @@ class BrowserPool {
   private browser: Browser | null = null;
   private contexts: PooledContext[] = [];
   private initPromise: Promise<void> | null = null;
-  private maxContextAge = 30 * 60 * 1000; // 30 minutes
-  private maxUseCount = 50; // Recycle after 50 uses
+  private maxContextAge = 10 * 60 * 1000; // 10 minutes (shorter for IP rotation)
+  private maxUseCount = 5; // Recycle after 5 uses (more frequent IP rotation)
 
   async initialize(): Promise<void> {
     if (this.browser) return;
@@ -126,14 +139,15 @@ class BrowserPool {
 
     const stealthOptions = getStealthOptions();
 
-    // Add proxy configuration if available
+    // Add proxy configuration if available (with IP rotation via session ID)
     if (PROXY_SERVER) {
+      const proxyUsername = getProxyUsername();
       stealthOptions.proxy = {
         server: PROXY_SERVER,
-        username: PROXY_USERNAME || undefined,
+        username: proxyUsername || undefined,
         password: PROXY_PASSWORD || undefined,
       };
-      logger.debug({ proxyServer: PROXY_SERVER }, 'Using proxy server');
+      logger.debug({ proxyServer: PROXY_SERVER, proxyUsername }, 'Using proxy server with session-based IP rotation');
     }
 
     const context = await this.browser.newContext(stealthOptions);
