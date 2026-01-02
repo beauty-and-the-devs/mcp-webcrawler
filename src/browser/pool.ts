@@ -9,6 +9,11 @@ import { logger } from '../utils/logger.js';
 const MAX_CONCURRENT = parseInt(process.env['MAX_CONCURRENT_PAGES'] ?? '3', 10);
 const HEADLESS = process.env['BROWSER_HEADLESS'] !== 'false';
 
+// Proxy configuration from environment
+const PROXY_SERVER = process.env['PROXY_SERVER'] || ''; // e.g., 'http://proxy.example.com:port'
+const PROXY_USERNAME = process.env['PROXY_USERNAME'] || '';
+const PROXY_PASSWORD = process.env['PROXY_PASSWORD'] || '';
+
 interface PooledContext {
   context: BrowserContext;
   inUse: boolean;
@@ -120,6 +125,17 @@ class BrowserPool {
     }
 
     const stealthOptions = getStealthOptions();
+
+    // Add proxy configuration if available
+    if (PROXY_SERVER) {
+      stealthOptions.proxy = {
+        server: PROXY_SERVER,
+        username: PROXY_USERNAME || undefined,
+        password: PROXY_PASSWORD || undefined,
+      };
+      logger.debug({ proxyServer: PROXY_SERVER }, 'Using proxy server');
+    }
+
     const context = await this.browser.newContext(stealthOptions);
 
     const pooledContext: PooledContext = {
