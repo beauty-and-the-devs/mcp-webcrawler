@@ -98,8 +98,8 @@ const server = http.createServer(async (req, res) => {
 
         return {
           url: window.location.href,
-          title: document.title,
-          bodyLength: document.body.innerHTML.length,
+          title: document.title || 'No title',
+          bodyLength: document.body?.innerHTML?.length || 0,
           scriptTags: scriptInfo,
           hasUniversalData: !!universalData,
           hasSigiState: !!sigiState,
@@ -107,7 +107,7 @@ const server = http.createServer(async (req, res) => {
           productLinks: productLinks,
           productIds: productIds.slice(0, 10),
           // Sample of body content (first 2000 chars)
-          bodySample: document.body.innerText.substring(0, 2000),
+          bodySample: document.body?.innerText?.substring(0, 2000) || 'No body content',
         };
       });
 
