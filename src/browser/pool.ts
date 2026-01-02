@@ -22,10 +22,10 @@ function generateSessionId(): string {
 // Build proxy username with session ID for IP rotation
 function getProxyUsername(): string {
   if (!PROXY_USERNAME) return '';
-  // Append session ID to username for Bright Data IP rotation
-  // Format: brd-customer-XXXXX-zone-ZONE-session-RANDOM
-  // Example: brd-customer-12345-zone-residential-session-abc123xyz
-  return `${PROXY_USERNAME}-session-${generateSessionId()}`;
+  // Append country and session ID to username for Bright Data IP rotation
+  // Format: brd-customer-XXXXX-zone-ZONE-country-us-session-RANDOM
+  // Example: brd-customer-12345-zone-residential-country-us-session-abc123xyz
+  return `${PROXY_USERNAME}-country-us-session-${generateSessionId()}`;
 }
 
 interface PooledContext {
