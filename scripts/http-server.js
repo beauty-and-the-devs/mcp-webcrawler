@@ -111,17 +111,25 @@ const server = http.createServer(async (req, res) => {
         };
       });
 
-      // Take screenshot
-      const screenshot = await page.screenshot({ type: 'png', fullPage: false });
+      // Take screenshot (with timeout protection)
+      let screenshot = null;
+      try {
+        screenshot = await Promise.race([
+          page.screenshot({ type: 'png', fullPage: false }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Screenshot timeout')), 10000))
+        ]);
+      } catch (e) {
+        console.log('Screenshot failed:', e.message);
+      }
 
       await page.close();
       browserPool.release(browserContext);
 
-      // Return debug info (screenshot as base64)
+      // Return debug info (screenshot as base64 if available)
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         ...debugInfo,
-        screenshot: screenshot.toString('base64'),
+        screenshot: screenshot ? screenshot.toString('base64') : null,
       }));
     } catch (error) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
