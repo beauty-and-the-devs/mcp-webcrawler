@@ -14,9 +14,9 @@ const PROXY_SERVER = process.env['PROXY_SERVER'] || ''; // e.g., 'http://brd.sup
 const PROXY_USERNAME = process.env['PROXY_USERNAME'] || ''; // e.g., 'brd-customer-XXXXX-zone-residential'
 const PROXY_PASSWORD = process.env['PROXY_PASSWORD'] || '';
 
-// Generate random session ID for Bright Data IP rotation
+// Generate random session ID for Bright Data IP rotation (simple alphanumeric)
 function generateSessionId(): string {
-  return `session-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+  return Math.random().toString(36).substring(2, 12);
 }
 
 // Build proxy username with session ID for IP rotation
@@ -24,7 +24,8 @@ function getProxyUsername(): string {
   if (!PROXY_USERNAME) return '';
   // Append session ID to username for Bright Data IP rotation
   // Format: brd-customer-XXXXX-zone-ZONE-session-RANDOM
-  return `${PROXY_USERNAME}-${generateSessionId()}`;
+  // Example: brd-customer-12345-zone-residential-session-abc123xyz
+  return `${PROXY_USERNAME}-session-${generateSessionId()}`;
 }
 
 interface PooledContext {
