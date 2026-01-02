@@ -73,6 +73,29 @@ const server = http.createServer(async (req, res) => {
         const sigiState = document.querySelector('#SIGI_STATE');
         const nextData = document.querySelector('#__NEXT_DATA__');
 
+        // Extract all product-related links
+        const allLinks = Array.from(document.querySelectorAll('a[href]'));
+        const productLinks = allLinks
+          .map(a => a.href)
+          .filter(href => href && (
+            href.includes('/product/') ||
+            href.includes('/view/product/') ||
+            href.includes('product_id=') ||
+            href.includes('/p/')
+          ))
+          .slice(0, 20);
+
+        // Extract product IDs from data attributes or JSON
+        const productIds = [];
+        const routerData = document.querySelector('#__MODERN_ROUTER_DATA__');
+        if (routerData?.textContent) {
+          const matches = routerData.textContent.match(/product[_-]?id['":\s]+['"]?(\d+)/gi) || [];
+          matches.forEach(m => {
+            const id = m.match(/(\d+)/);
+            if (id) productIds.push(id[1]);
+          });
+        }
+
         return {
           url: window.location.href,
           title: document.title,
@@ -81,6 +104,8 @@ const server = http.createServer(async (req, res) => {
           hasUniversalData: !!universalData,
           hasSigiState: !!sigiState,
           hasNextData: !!nextData,
+          productLinks: productLinks,
+          productIds: productIds.slice(0, 10),
           // Sample of body content (first 2000 chars)
           bodySample: document.body.innerText.substring(0, 2000),
         };
