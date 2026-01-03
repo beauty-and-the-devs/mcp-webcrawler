@@ -127,6 +127,43 @@ interface ProductDetailResponse {
   }>;
 }
 
+interface VideoDetailResponse {
+  success: boolean;
+  credits_remaining: number;
+  aweme_detail: {
+    aweme_id: string;
+    desc: string;
+    create_time: number;
+    author: {
+      uid: string;
+      unique_id: string;
+      nickname: string;
+      avatar_thumb?: { url_list: string[] };
+    };
+    statistics: {
+      play_count: number;
+      digg_count: number;
+      comment_count: number;
+      share_count: number;
+      collect_count: number;
+    };
+    video: {
+      duration: number;
+      cover?: { url_list: string[] };
+      play_addr?: { url_list: string[] };
+    };
+    music?: {
+      title: string;
+      author: string;
+    };
+    text_extra?: Array<{
+      hashtag_name?: string;
+    }>;
+    shop_product_url?: string;
+  };
+  transcript?: string;
+}
+
 async function apiRequest<T>(endpoint: string, params: Record<string, string> = {}): Promise<T> {
   if (!API_KEY) {
     throw new Error('SCRAPECREATORS_API_KEY environment variable is not set');
@@ -207,6 +244,15 @@ export async function getProfile(handle: string): Promise<ProfileResponse> {
 }
 
 /**
+ * Get TikTok video details by URL
+ */
+export async function getVideoDetails(videoUrl: string): Promise<VideoDetailResponse> {
+  return apiRequest<VideoDetailResponse>('/v2/tiktok/video', {
+    url: videoUrl,
+  });
+}
+
+/**
  * Transform ScrapeCreators product to our SimpleProduct format
  */
 export function transformProduct(product: ShopProduct): {
@@ -248,5 +294,6 @@ export const scrapeCreatorsClient = {
   getShopProducts,
   getProductDetails,
   getProfile,
+  getVideoDetails,
   transformProduct,
 };

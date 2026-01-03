@@ -1,6 +1,6 @@
 /**
  * crawl_video MCP Tool
- * Crawls TikTok video with tagged products
+ * Crawls TikTok video details via ScrapeCreators API
  */
 
 import { v4 as uuidv4 } from 'uuid';
@@ -8,11 +8,8 @@ import { CrawlVideoInputSchema } from '../schemas/input.js';
 import type { CrawlVideoOutput } from '../schemas/output.js';
 import { RunContext } from '../store/run-context.js';
 import { entityStore } from '../store/entity-store.js';
-import { browserPool } from '../browser/pool.js';
 import { rateLimiter } from '../utils/rate-limiter.js';
-import { withRetry } from '../utils/retry.js';
-import { VideoExtractor } from '../extractors/video.js';
-import { classifyPageType } from '../classifier/url-pattern.js';
+import { scrapeCreatorsClient } from '../api/scrapecreators.js';
 import { logger } from '../utils/logger.js';
 
 const TOOL_NAME = 'crawl_video';
@@ -24,80 +21,90 @@ export async function crawlVideo(args: unknown): Promise<CrawlVideoOutput> {
 
   try {
     const input = CrawlVideoInputSchema.parse(args);
-    logger.info({ runId, input }, 'Starting crawl_video');
+    logger.info({ runId, input }, 'Starting crawl_video via ScrapeCreators API');
 
     await rateLimiter.acquire(TOOL_NAME);
 
-    const browserContext = await browserPool.acquire();
+    // Build video URL
+    const videoUrl = `https://www.tiktok.com/video/${input.video_id}`;
 
-    try {
-      const page = await browserContext.newPage();
+    // Call ScrapeCreators API
+    const response = await scrapeCreatorsClient.getVideoDetails(videoUrl);
 
-      const url = `https://www.tiktok.com/video/${input.video_id}`;
-      logger.debug({ runId, url }, 'Navigating to video page');
+    // Transform to our video format
+    let video = null;
+    const taggedProducts: any[] = [];
+    const edges: any[] = [];
 
-      await withRetry(
-        async () => {
-          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    if (response.aweme_detail) {
+      const detail = response.aweme_detail;
+
+      video = {
+        video_id: detail.aweme_id,
+        description: detail.desc || null,
+        create_time: detail.create_time ? new Date(detail.create_time * 1000).toISOString() : null,
+        author: {
+          user_id: detail.author?.uid || null,
+          handle: detail.author?.unique_id || null,
+          nickname: detail.author?.nickname || null,
+          avatar_url: detail.author?.avatar_thumb?.url_list?.[0] || null,
         },
-        { maxRetries: 3, baseDelay: 1000 },
-      );
-
-      const pageType = classifyPageType(page.url());
-      if (pageType !== 'video') {
-        context.addError('PAGE_TYPE_MISMATCH', `Expected video, got ${pageType}`);
-      }
-
-      const extractor = new VideoExtractor(page, context);
-      const result = await extractor.extract({
-        videoId: input.video_id,
-        includeTaggedProducts: true,
-      });
-
-      const video = result.video;
-      const taggedProducts = result.taggedProducts || [];
-      const edges: any[] = [];
-
-      if (video) {
-        entityStore.add('video', video.video_id, video);
-      }
-
-      // Create edges for products
-      for (const product of taggedProducts) {
-        const edge = {
-          from_type: 'video',
-          from_id: video?.video_id || input.video_id,
-          to_type: 'product',
-          to_id: product.product_id,
-          edge_type: 'tags_product',
-          metadata: {},
-        };
-        edges.push(edge);
-      }
-
-      const qualityReport = context.generateQualityReport();
-      const elapsedMs = Date.now() - startTime;
-
-      await page.close().catch(() => {});
-      browserPool.release(browserContext);
-
-      return {
-        success: true,
-        run_id: runId,
-        video,
-        tagged_products: taggedProducts,
-        edges,
-        quality: qualityReport,
-        metadata: {
-          crawled_at: new Date().toISOString(),
-          page_url: url,
-          elapsed_ms: elapsedMs,
+        statistics: {
+          play_count: detail.statistics?.play_count ?? null,
+          like_count: detail.statistics?.digg_count ?? null,
+          comment_count: detail.statistics?.comment_count ?? null,
+          share_count: detail.statistics?.share_count ?? null,
+          collect_count: detail.statistics?.collect_count ?? null,
         },
+        video_info: {
+          duration: detail.video?.duration ?? null,
+          cover_url: detail.video?.cover?.url_list?.[0] || null,
+        },
+        music: detail.music ? {
+          title: detail.music.title || null,
+          author: detail.music.author || null,
+        } : null,
+        hashtags: detail.text_extra?.filter(t => t.hashtag_name).map(t => t.hashtag_name) || [],
+        shop_product_url: detail.shop_product_url || null,
+        transcript: response.transcript || null,
       };
-    } catch (innerError) {
-      browserPool.release(browserContext);
-      throw innerError;
+
+      entityStore.add('video', video.video_id, video);
+
+      // If there's a shop product URL, create an edge
+      if (detail.shop_product_url) {
+        // Extract product ID from URL if possible
+        const productIdMatch = detail.shop_product_url.match(/product\/(\d+)/);
+        if (productIdMatch) {
+          const edge = {
+            from_type: 'video',
+            from_id: video.video_id,
+            to_type: 'product',
+            to_id: productIdMatch[1],
+            edge_type: 'promotes_product',
+            metadata: { url: detail.shop_product_url },
+          };
+          edges.push(edge);
+        }
+      }
     }
+
+    const qualityReport = context.generateQualityReport();
+    const elapsedMs = Date.now() - startTime;
+
+    return {
+      success: true,
+      run_id: runId,
+      video,
+      tagged_products: taggedProducts,
+      edges,
+      quality: qualityReport,
+      metadata: {
+        crawled_at: new Date().toISOString(),
+        page_url: videoUrl,
+        elapsed_ms: elapsedMs,
+      },
+    };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error({ runId, error: errorMessage }, 'crawl_video failed');
@@ -122,11 +129,11 @@ export async function crawlVideo(args: unknown): Promise<CrawlVideoOutput> {
 
 export const crawlVideoTool = {
   name: TOOL_NAME,
-  description: 'Crawl TikTok video with tagged products.',
+  description: 'Get TikTok video details via ScrapeCreators API. Supports video_id or full URL.',
   inputSchema: {
     type: 'object',
     properties: {
-      video_id: { type: 'string', description: 'TikTok video ID' },
+      video_id: { type: 'string', description: 'TikTok video ID or full video URL' },
     },
     required: ['video_id'],
   },

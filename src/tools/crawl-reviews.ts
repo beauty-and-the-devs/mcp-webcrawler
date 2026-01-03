@@ -1,18 +1,15 @@
 /**
  * crawl_reviews MCP Tool
- * Crawls TikTok Shop product reviews
+ * Note: ScrapeCreators API does not support fetching individual review text.
+ * This tool returns review summary (rating, review_count) from product API.
  */
 
 import { v4 as uuidv4 } from 'uuid';
 import { CrawlReviewsInputSchema } from '../schemas/input.js';
 import type { CrawlReviewsOutput, ReviewSummary } from '../schemas/output.js';
 import { RunContext } from '../store/run-context.js';
-import { entityStore } from '../store/entity-store.js';
-import { browserPool } from '../browser/pool.js';
 import { rateLimiter } from '../utils/rate-limiter.js';
-import { withRetry } from '../utils/retry.js';
-import { ReviewExtractor } from '../extractors/review.js';
-import { classifyPageType } from '../classifier/url-pattern.js';
+import { scrapeCreatorsClient } from '../api/scrapecreators.js';
 import { logger } from '../utils/logger.js';
 
 const TOOL_NAME = 'crawl_reviews';
@@ -24,74 +21,49 @@ export async function crawlReviews(args: unknown): Promise<CrawlReviewsOutput> {
 
   try {
     const input = CrawlReviewsInputSchema.parse(args);
-    logger.info({ runId, input }, 'Starting crawl_reviews');
+    logger.info({ runId, input }, 'Starting crawl_reviews via ScrapeCreators API');
 
     await rateLimiter.acquire(TOOL_NAME);
 
-    const browserContext = await browserPool.acquire();
+    // Build product URL and get product details (which includes rating/review_count)
+    const productUrl = `https://www.tiktok.com/view/product/${input.product_id}`;
 
-    try {
-      const page = await browserContext.newPage();
+    // Call ScrapeCreators product API to get rating info
+    const response = await scrapeCreatorsClient.getProductDetails(productUrl, false);
 
-      const url = `https://www.tiktok.com/shop/product/${input.product_id}/reviews?sort=${input.sort_by}`;
-      logger.debug({ runId, url }, 'Navigating to reviews page');
+    // Extract review summary from product data
+    const rating = response.seller?.rating ? parseFloat(response.seller.rating) : null;
 
-      await withRetry(
-        async () => {
-          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        },
-        { maxRetries: 3, baseDelay: 1000 },
-      );
+    const summary: ReviewSummary = {
+      average_rating: rating,
+      rating_distribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 },
+      total_with_media: 0,
+      total_verified: 0,
+      sentiment_breakdown: { positive: 0, neutral: 0, negative: 0 },
+      average_sentiment: null,
+      sentiment_classification: 'unknown',
+    };
 
-      const pageType = classifyPageType(page.url());
-      if (pageType !== 'reviews') {
-        context.addError('PAGE_TYPE_MISMATCH', `Expected reviews, got ${pageType}`);
-      }
+    const qualityReport = context.generateQualityReport();
+    const elapsedMs = Date.now() - startTime;
 
-      const extractor = new ReviewExtractor(page, context);
-      const result = await extractor.extract({
-        productId: input.product_id,
-        limit: input.max_reviews,
-        analyzeSentiment: true,
-      });
+    // Note: Individual review text is not available via ScrapeCreators API
+    context.addError('API_LIMITATION', 'ScrapeCreators does not support fetching individual review text. Only rating summary is available.');
 
-      const reviews = result.reviews || [];
-
-      const storedReviews: any[] = [];
-      for (const review of reviews) {
-        const isNew = entityStore.add('review', review.review_id || uuidv4(), review);
-        if (isNew) {
-          storedReviews.push(review);
-        } else {
-          context.incrementDuplicates();
-        }
-      }
-
-      const summary = generateReviewSummary(storedReviews);
-      const qualityReport = context.generateQualityReport();
-      const elapsedMs = Date.now() - startTime;
-
-      await page.close().catch(() => {});
-      browserPool.release(browserContext);
-
-      return {
-        success: true,
-        run_id: runId,
-        reviews: storedReviews,
-        total_count: storedReviews.length,
-        product_id: input.product_id,
-        summary,
-        quality: qualityReport,
-        metadata: {
-          crawled_at: new Date().toISOString(),
-          page_url: url,
-          elapsed_ms: elapsedMs,
-        },
-      };
-    } catch (innerError) {
-      browserPool.release(browserContext);
-      throw innerError;
-    }
+    return {
+      success: true,
+      run_id: runId,
+      reviews: [], // Individual reviews not available
+      total_count: 0,
+      product_id: input.product_id,
+      summary,
+      quality: qualityReport,
+      metadata: {
+        crawled_at: new Date().toISOString(),
+        page_url: productUrl,
+        elapsed_ms: elapsedMs,
+      },
+    };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error({ runId, error: errorMessage }, 'crawl_reviews failed');
@@ -114,47 +86,14 @@ export async function crawlReviews(args: unknown): Promise<CrawlReviewsOutput> {
   }
 }
 
-function generateReviewSummary(reviews: any[]): ReviewSummary {
-  if (reviews.length === 0) {
-    return {
-      average_rating: null,
-      rating_distribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 },
-      total_with_media: 0,
-      total_verified: 0,
-      sentiment_breakdown: { positive: 0, neutral: 0, negative: 0 },
-      average_sentiment: null,
-    };
-  }
-
-  const ratings = reviews.map((r) => r.rating).filter((r) => r != null);
-  const avgRating = ratings.length > 0
-    ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
-    : null;
-
-  const distribution: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
-  for (const rating of ratings) {
-    const key = String(Math.round(rating));
-    if (key in distribution) distribution[key]++;
-  }
-
-  return {
-    average_rating: avgRating,
-    rating_distribution: distribution,
-    total_with_media: reviews.filter((r) => r.media_urls?.length > 0).length,
-    total_verified: reviews.filter((r) => r.author?.is_verified_buyer).length,
-    sentiment_breakdown: { positive: 0, neutral: reviews.length, negative: 0 },
-    average_sentiment: null,
-  };
-}
-
 export const crawlReviewsTool = {
   name: TOOL_NAME,
-  description: 'Crawl TikTok Shop product reviews.',
+  description: 'Get TikTok Shop product review summary. Note: Individual review text is not available via API - only rating/review_count from product details.',
   inputSchema: {
     type: 'object',
     properties: {
       product_id: { type: 'string', description: 'TikTok Shop product ID' },
-      max_reviews: { type: 'number', description: 'Maximum reviews to crawl', default: 100 },
+      max_reviews: { type: 'number', description: 'Not used (API limitation)', default: 100 },
       sort_by: { type: 'string', enum: ['recent', 'helpful', 'rating_high', 'rating_low'], default: 'recent' },
       min_rating: { type: 'number', minimum: 1, maximum: 5 },
       include_media: { type: 'boolean', default: false },
