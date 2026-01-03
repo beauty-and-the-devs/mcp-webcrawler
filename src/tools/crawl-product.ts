@@ -34,26 +34,34 @@ export async function crawlProduct(args: unknown): Promise<CrawlProductOutput> {
       input.include_reviews ?? true
     );
 
-    // Transform product to our format
+    // Transform product to our format (API returns product_base and seller separately)
     let product = null;
-    if (response.product) {
+    if (response.product_id && response.product_base) {
+      const priceStr = response.product_base.price?.real_price?.replace(/[^0-9.]/g, '') || '0';
+      const origPriceStr = response.product_base.price?.original_price?.replace(/[^0-9.]/g, '') || '0';
+
       product = {
-        product_id: response.product.product_id,
-        product_name: response.product.title || null,
-        description: response.product.description || null,
-        current_price: response.product.price?.current ?? null,
-        original_price: response.product.price?.original ?? null,
-        currency: response.product.price?.currency || 'USD',
-        discount: response.product.price?.discount || null,
-        sales_count: response.product.sold_count ?? null,
-        rating: response.product.rating ?? null,
-        review_count: response.product.review_count ?? null,
-        stock: response.product.stock ?? null,
-        shop_id: response.product.seller?.id || null,
-        shop_name: response.product.seller?.name || null,
-        shop_logo: response.product.seller?.logo || null,
-        images: response.product.images || [],
-        related_videos: response.product.related_videos || [],
+        product_id: response.product_id,
+        product_name: response.product_base.title || null,
+        description: null, // Not available in this response
+        current_price: parseFloat(priceStr) || null,
+        original_price: parseFloat(origPriceStr) || null,
+        currency: response.product_base.price?.currency || 'USD',
+        discount: response.product_base.price?.discount || null,
+        sales_count: response.product_base.sold_count ?? null,
+        rating: response.seller?.rating ? parseFloat(response.seller.rating) : null,
+        review_count: null, // Not directly available
+        stock: null, // Not directly available
+        shop_id: response.seller?.seller_id || null,
+        shop_name: response.seller?.name || null,
+        shop_logo: response.seller?.avatar?.url_list?.[0] || null,
+        images: response.product_base.images?.map(img => img.url_list?.[0]).filter(Boolean) || [],
+        specifications: response.product_base.specifications || [],
+        category: response.product_base.category_name || null,
+        variants: response.sale_props?.map(prop => ({
+          name: prop.prop_name,
+          values: prop.sale_prop_values?.map(v => v.prop_value) || [],
+        })) || [],
         product_url: productUrl,
       };
 

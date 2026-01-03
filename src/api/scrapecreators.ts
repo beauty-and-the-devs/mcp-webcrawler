@@ -96,32 +96,35 @@ interface ProfileResponse {
 interface ProductDetailResponse {
   success: boolean;
   credits_remaining: number;
-  product?: {
-    product_id: string;
-    title: string;
-    description: string;
-    images: string[];
-    price: {
-      current: number;
-      original: number;
-      currency: string;
-      discount: string;
-    };
-    stock: number;
-    rating: number;
-    review_count: number;
-    sold_count: number;
-    seller: {
-      id: string;
-      name: string;
-      logo: string;
-    };
-    related_videos?: Array<{
-      video_id: string;
-      author: string;
-      views: number;
-    }>;
+  product_id: string;
+  status: number;
+  seller: {
+    seller_id: string;
+    name: string;
+    avatar?: { url_list: string[] };
+    product_count?: number;
+    rating?: string;
   };
+  product_base: {
+    title: string;
+    images: Array<{ url_list: string[] }>;
+    specifications?: Array<{ name: string; value: string }>;
+    sold_count: number;
+    price: {
+      original_price: string;
+      real_price: string;
+      discount: string;
+      currency: string;
+    };
+    category_name?: string;
+  };
+  sale_props?: Array<{
+    prop_name: string;
+    sale_prop_values: Array<{
+      prop_value: string;
+      image?: { url_list: string[] };
+    }>;
+  }>;
 }
 
 async function apiRequest<T>(endpoint: string, params: Record<string, string> = {}): Promise<T> {
