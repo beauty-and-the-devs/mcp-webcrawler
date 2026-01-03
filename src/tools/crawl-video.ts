@@ -25,8 +25,11 @@ export async function crawlVideo(args: unknown): Promise<CrawlVideoOutput> {
 
     await rateLimiter.acquire(TOOL_NAME);
 
-    // Build video URL
-    const videoUrl = `https://www.tiktok.com/video/${input.video_id}`;
+    // Handle both video ID and full URL
+    // ScrapeCreators API works best with short URLs (tiktok.com/t/...) or full URLs with username
+    const videoUrl = input.video_id.startsWith('http')
+      ? input.video_id
+      : `https://www.tiktok.com/video/${input.video_id}`;
 
     // Call ScrapeCreators API
     const response = await scrapeCreatorsClient.getVideoDetails(videoUrl);
