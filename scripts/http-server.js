@@ -10,6 +10,7 @@ import { crawlReviews } from '../dist/tools/crawl-reviews.js';
 import { crawlSearch } from '../dist/tools/crawl-search.js';
 import { crawlCreator } from '../dist/tools/crawl-creator.js';
 import { crawlVideo } from '../dist/tools/crawl-video.js';
+import { crawlShop } from '../dist/tools/crawl-shop.js';
 import { getCrawlStatus } from '../dist/tools/get-crawl-status.js';
 import { browserPool } from '../dist/browser/pool.js';
 
@@ -22,6 +23,7 @@ const tools = {
   'crawl_search': crawlSearch,
   'crawl_creator': crawlCreator,
   'crawl_video': crawlVideo,
+  'crawl_shop': crawlShop,
   'get_crawl_status': getCrawlStatus,
 };
 
