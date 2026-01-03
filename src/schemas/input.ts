@@ -22,6 +22,7 @@ export type CrawlBestsellersInput = z.infer<typeof CrawlBestsellersInputSchema>;
 
 export const CrawlProductInputSchema = z.object({
   product_id: z.string().describe('TikTok Shop product ID'),
+  include_reviews: z.boolean().default(true).describe('Include related videos'),
 });
 
 export type CrawlProductInput = z.infer<typeof CrawlProductInputSchema>;

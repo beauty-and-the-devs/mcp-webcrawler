@@ -21,6 +21,7 @@ import { crawlReviewsTool } from './tools/crawl-reviews.js';
 import { crawlSearchTool } from './tools/crawl-search.js';
 import { crawlCreatorTool } from './tools/crawl-creator.js';
 import { crawlVideoTool } from './tools/crawl-video.js';
+import { crawlShopTool } from './tools/crawl-shop.js';
 import { getCrawlStatusTool } from './tools/get-crawl-status.js';
 
 const SERVER_NAME = 'webcrawler-mcp';
@@ -34,6 +35,7 @@ const tools = [
   crawlSearchTool,
   crawlCreatorTool,
   crawlVideoTool,
+  crawlShopTool,
   getCrawlStatusTool,
 ];
 
@@ -44,6 +46,7 @@ const toolHandlers: Record<string, (args: unknown) => Promise<unknown>> = {
   [crawlSearchTool.name]: crawlSearchTool.handler,
   [crawlCreatorTool.name]: crawlCreatorTool.handler,
   [crawlVideoTool.name]: crawlVideoTool.handler,
+  [crawlShopTool.name]: crawlShopTool.handler,
   [getCrawlStatusTool.name]: getCrawlStatusTool.handler,
 };
 

@@ -1,6 +1,6 @@
 /**
  * crawl_product MCP Tool
- * Crawls TikTok Shop product detail page
+ * Crawls TikTok Shop product detail via ScrapeCreators API
  */
 
 import { v4 as uuidv4 } from 'uuid';
@@ -8,11 +8,8 @@ import { CrawlProductInputSchema } from '../schemas/input.js';
 import type { CrawlProductOutput } from '../schemas/output.js';
 import { RunContext } from '../store/run-context.js';
 import { entityStore } from '../store/entity-store.js';
-import { browserPool } from '../browser/pool.js';
 import { rateLimiter } from '../utils/rate-limiter.js';
-import { withRetry } from '../utils/retry.js';
-import { PDPExtractor } from '../extractors/pdp.js';
-import { classifyPageType } from '../classifier/url-pattern.js';
+import { scrapeCreatorsClient } from '../api/scrapecreators.js';
 import { logger } from '../utils/logger.js';
 
 const TOOL_NAME = 'crawl_product';
@@ -24,64 +21,59 @@ export async function crawlProduct(args: unknown): Promise<CrawlProductOutput> {
 
   try {
     const input = CrawlProductInputSchema.parse(args);
-    logger.info({ runId, input }, 'Starting crawl_product');
+    logger.info({ runId, input }, 'Starting crawl_product via ScrapeCreators API');
 
     await rateLimiter.acquire(TOOL_NAME);
 
-    const browserContext = await browserPool.acquire();
+    // Build product URL
+    const productUrl = `https://www.tiktok.com/view/product/${input.product_id}`;
 
-    try {
-      const page = await browserContext.newPage();
+    // Call ScrapeCreators API
+    const response = await scrapeCreatorsClient.getProductDetails(
+      productUrl,
+      input.include_reviews ?? true
+    );
 
-      const url = `https://www.tiktok.com/shop/product/${input.product_id}`;
-      logger.debug({ runId, url }, 'Navigating to product page');
-
-      await withRetry(
-        async () => {
-          await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
-          // Wait for TikTok Shop content to render
-          await page.waitForTimeout(3000);
-        },
-        { maxRetries: 3, baseDelay: 2000 },
-      );
-
-      const pageType = classifyPageType(page.url());
-      if (pageType !== 'product_pdp') {
-        context.addError('PAGE_TYPE_MISMATCH', `Expected product_pdp, got ${pageType}`);
-      }
-
-      const extractor = new PDPExtractor(page, context);
-      const result = await extractor.extract({
-        productId: input.product_id,
-      });
-
-      const product = result.product;
-
-      if (product) {
-        entityStore.add('product_detail', product.product_id, product);
-      }
-
-      const qualityReport = context.generateQualityReport();
-      const elapsedMs = Date.now() - startTime;
-
-      await page.close().catch(() => {});
-      browserPool.release(browserContext);
-
-      return {
-        success: true,
-        run_id: runId,
-        product,
-        quality: qualityReport,
-        metadata: {
-          crawled_at: new Date().toISOString(),
-          page_url: url,
-          elapsed_ms: elapsedMs,
-        },
+    // Transform product to our format
+    let product = null;
+    if (response.product) {
+      product = {
+        product_id: response.product.product_id,
+        product_name: response.product.title || null,
+        description: response.product.description || null,
+        current_price: response.product.price?.current ?? null,
+        original_price: response.product.price?.original ?? null,
+        currency: response.product.price?.currency || 'USD',
+        discount: response.product.price?.discount || null,
+        sales_count: response.product.sold_count ?? null,
+        rating: response.product.rating ?? null,
+        review_count: response.product.review_count ?? null,
+        stock: response.product.stock ?? null,
+        shop_id: response.product.seller?.id || null,
+        shop_name: response.product.seller?.name || null,
+        shop_logo: response.product.seller?.logo || null,
+        images: response.product.images || [],
+        related_videos: response.product.related_videos || [],
+        product_url: productUrl,
       };
-    } catch (innerError) {
-      browserPool.release(browserContext);
-      throw innerError;
+
+      entityStore.add('product_detail', product.product_id, product);
     }
+
+    const qualityReport = context.generateQualityReport();
+    const elapsedMs = Date.now() - startTime;
+
+    return {
+      success: true,
+      run_id: runId,
+      product,
+      quality: qualityReport,
+      metadata: {
+        crawled_at: new Date().toISOString(),
+        page_url: productUrl,
+        elapsed_ms: elapsedMs,
+      },
+    };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error({ runId, error: errorMessage }, 'crawl_product failed');
@@ -104,12 +96,12 @@ export async function crawlProduct(args: unknown): Promise<CrawlProductOutput> {
 
 export const crawlProductTool = {
   name: TOOL_NAME,
-  description: 'Crawl TikTok Shop product detail page.',
+  description: 'Get TikTok Shop product details via ScrapeCreators API.',
   inputSchema: {
     type: 'object',
     properties: {
       product_id: { type: 'string', description: 'TikTok Shop product ID' },
-      include_reviews: { type: 'boolean', description: 'Include reviews summary', default: false },
+      include_reviews: { type: 'boolean', description: 'Include related videos', default: true },
     },
     required: ['product_id'],
   },

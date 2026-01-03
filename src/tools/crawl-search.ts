@@ -1,6 +1,6 @@
 /**
  * crawl_search MCP Tool
- * Crawls TikTok Shop search results
+ * Crawls TikTok Shop search results via ScrapeCreators API
  */
 
 import { v4 as uuidv4 } from 'uuid';
@@ -8,11 +8,8 @@ import { CrawlSearchInputSchema } from '../schemas/input.js';
 import type { CrawlSearchOutput } from '../schemas/output.js';
 import { RunContext } from '../store/run-context.js';
 import { entityStore } from '../store/entity-store.js';
-import { browserPool } from '../browser/pool.js';
 import { rateLimiter } from '../utils/rate-limiter.js';
-import { withRetry } from '../utils/retry.js';
-import { SearchExtractor } from '../extractors/search.js';
-import { classifyPageType } from '../classifier/url-pattern.js';
+import { scrapeCreatorsClient } from '../api/scrapecreators.js';
 import { logger } from '../utils/logger.js';
 
 const TOOL_NAME = 'crawl_search';
@@ -24,75 +21,48 @@ export async function crawlSearch(args: unknown): Promise<CrawlSearchOutput> {
 
   try {
     const input = CrawlSearchInputSchema.parse(args);
-    logger.info({ runId, input }, 'Starting crawl_search');
+    logger.info({ runId, input }, 'Starting crawl_search via ScrapeCreators API');
 
     await rateLimiter.acquire(TOOL_NAME);
 
-    const browserContext = await browserPool.acquire();
+    // Call ScrapeCreators API
+    const response = await scrapeCreatorsClient.searchShopProducts(
+      input.keyword,
+      input.max_products
+    );
 
-    try {
-      const page = await browserContext.newPage();
+    // Transform products to our format
+    const products = (response.products || []).map(scrapeCreatorsClient.transformProduct);
 
-      const encodedKeyword = encodeURIComponent(input.keyword);
-      const url = `https://www.tiktok.com/shop/search?q=${encodedKeyword}&region=${input.country}&sort=${input.sort_by}&page=${input.page}`;
-      logger.debug({ runId, url }, 'Navigating to search page');
-
-      await withRetry(
-        async () => {
-          await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
-          // Wait for TikTok Shop content to render
-          await page.waitForTimeout(3000);
-        },
-        { maxRetries: 3, baseDelay: 2000 },
-      );
-
-      const pageType = classifyPageType(page.url());
-      if (pageType !== 'search_result') {
-        context.addError('PAGE_TYPE_MISMATCH', `Expected search_result, got ${pageType}`);
+    // Store products
+    const storedProducts: any[] = [];
+    for (const product of products) {
+      const isNew = entityStore.add('search_result', product.product_id || uuidv4(), product);
+      if (isNew) {
+        storedProducts.push(product);
+      } else {
+        context.incrementDuplicates();
       }
-
-      const extractor = new SearchExtractor(page, context);
-      const result = await extractor.extract({
-        limit: input.max_products,
-      });
-
-      const products = result.products || [];
-
-      const storedProducts: any[] = [];
-      for (const product of products) {
-        const isNew = entityStore.add('search_result', product.product_id || uuidv4(), product);
-        if (isNew) {
-          storedProducts.push(product);
-        } else {
-          context.incrementDuplicates();
-        }
-      }
-
-      const qualityReport = context.generateQualityReport();
-      const elapsedMs = Date.now() - startTime;
-
-      await page.close().catch(() => {});
-      browserPool.release(browserContext);
-
-      return {
-        success: true,
-        run_id: runId,
-        products: storedProducts,
-        total_count: storedProducts.length,
-        keyword: input.keyword,
-        page: input.page,
-        has_more: storedProducts.length >= input.max_products,
-        quality: qualityReport,
-        metadata: {
-          crawled_at: new Date().toISOString(),
-          page_url: url,
-          elapsed_ms: elapsedMs,
-        },
-      };
-    } catch (innerError) {
-      browserPool.release(browserContext);
-      throw innerError;
     }
+
+    const qualityReport = context.generateQualityReport();
+    const elapsedMs = Date.now() - startTime;
+
+    return {
+      success: true,
+      run_id: runId,
+      products: storedProducts,
+      total_count: storedProducts.length,
+      keyword: input.keyword,
+      page: input.page,
+      has_more: storedProducts.length >= input.max_products,
+      quality: qualityReport,
+      metadata: {
+        crawled_at: new Date().toISOString(),
+        page_url: `https://api.scrapecreators.com/v1/tiktok/shop/search?query=${encodeURIComponent(input.keyword)}`,
+        elapsed_ms: elapsedMs,
+      },
+    };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error({ runId, error: errorMessage }, 'crawl_search failed');
@@ -119,15 +89,15 @@ export async function crawlSearch(args: unknown): Promise<CrawlSearchOutput> {
 
 export const crawlSearchTool = {
   name: TOOL_NAME,
-  description: 'Crawl TikTok Shop search results.',
+  description: 'Search TikTok Shop products by keyword via ScrapeCreators API.',
   inputSchema: {
     type: 'object',
     properties: {
       keyword: { type: 'string', description: 'Search keyword' },
-      country: { type: 'string', description: 'Country code', default: 'US' },
-      max_products: { type: 'number', description: 'Maximum products', default: 50 },
+      country: { type: 'string', description: 'Country code (for reference)', default: 'US' },
+      max_products: { type: 'number', description: 'Maximum products to return', default: 20 },
       sort_by: { type: 'string', enum: ['relevance', 'price_low', 'price_high', 'sales', 'newest'], default: 'relevance' },
-      page: { type: 'number', description: 'Page number', default: 1 },
+      page: { type: 'number', description: 'Page number (for reference)', default: 1 },
     },
     required: ['keyword'],
   },
