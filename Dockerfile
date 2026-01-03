@@ -48,6 +48,7 @@ ENV LOG_LEVEL=info
 ENV BROWSER_HEADLESS=true
 ENV BROWSER_POOL_SIZE=2
 ENV PORT=3000
+ENV SERVER_MODE=http
 
 # Expose HTTP port
 EXPOSE 3000
@@ -56,5 +57,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -sf http://localhost:3000/health || exit 1
 
-# Run HTTP server (not stdio)
-CMD ["node", "scripts/http-server.js"]
+# Run server based on SERVER_MODE (http or sse)
+CMD ["sh", "-c", "if [ \"$SERVER_MODE\" = \"sse\" ]; then node scripts/mcp-sse-server.js; else node scripts/http-server.js; fi"]
